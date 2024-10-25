@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Custom Mapbox Pop-up</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        /* Responsive styling for the map */
+        #map {
+            width: 100%;
+            height: 100vh; /* Full height of the viewport */
+            position: relative; /* Ensure positioning works correctly */
+        }
+
+        body {
+            margin: 0; /* Remove default margins */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZGFuaWVsLWZpbmRydHJhY2tpbmciLCJhIjoiY20yb3ZicTBwMDhtZzJycjF2NGtqeDBrZiJ9.2aZtPlWmkctyF8ctKndRsQ';
+        
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/daniel-findrtracking/cm2p3l6ha007601qu6r3kfyy8',
+            center: [0, 0],
+            zoom: 5
+        });
+
+        // Resize the map on window resize
+        window.addEventListener('resize', () => {
+            map.resize();
+        });
+
+        // Get URL parameters to filter data
+        const urlParams = new URLSearchParams(window.location.search);
+        const selectedSiteId = urlParams.get('siteId'); // Pass 'siteId' from Power BI
+
+        map.on('load', () => {
+            console.log("Map loaded");
+
+            if (map.getLayer('map-data-0wpnen')) {
+                console.log("Layer 'map-data-0wpnen' found");
+
+                // Filter the data if a site ID is provided
+                const filterExpression = selectedSiteId ? ['==', ['get', 'site_id'], selectedSiteId] : null;
+                if (filterExpression) {
+                    map.setFilter('map-data-0wpnen', filterExpression);
+                }
+
+                map.on('click', 'map-data-0wpnen', (e) => {
+                    if (e.features.length > 0) {
+                        const site = e.features[0].properties;
+
+                        // Parse the battery_numbers string into an array
+                        const batteryNumbers = site["battery_numbers"] ? JSON.parse(site["battery_numbers"]) : [];
+                        
+                        // Create battery list items from the array
+                        const batteryList = Array.isArray(batteryNumbers) && batteryNumbers.length > 0
+                            ? batteryNumbers.map(battery => `<li>${battery}</li>`).join("")
+                            : "<li>No batteries</li>";
+
+                        const popupContent = `
+                            <h3>${site?.["site_name"] || "N/A"}</h3>
+                            <p><strong>Site ID:</strong> ${site?.["site_id"] || "N/A"}</p>
+                            <p><strong>Tracker IMEI:</strong> ${site?.["tracker_IMEI"] || "N/A"}</p>
+                            <p><strong>Geofence Distance:</strong> ${site?.["geofence_distance"] || "N/A"}</p>
+                            <p><strong>Batteries:</strong></p>
+                            <ul>${batteryList}</ul>
+                        `;
+
+                        new mapboxgl.Popup()
+                            .setLngLat(e.lngLat)
+                            .setHTML(popupContent)
+                            .addTo(map);
+                    } else {
+                        console.warn("No features found at this location.");
+                    }
+                });
+
+                map.on('mouseenter', 'map-data-0wpnen', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+
+                map.on('mouseleave', 'map-data-0wpnen', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+            } else {
+                console.error("Layer 'map-data-0wpnen' not found");
+            }
+        });
+    </script>
+</body>
+</html>
